@@ -88,13 +88,15 @@ class DraggableLight(QLabel):
             drag.exec(Qt.DropAction.MoveAction)
 
 
+    def change_colour(self,color):  
+        self.color = color
+
 class OpenGLWidget(QOpenGLWidget):
     def __init__(self, obj_path):
         super().__init__()
         self.sphere=gluNewQuadric()
         self.obj = ObjLoader(obj_path)
         self.lights = []  # Store lights as (x, y, z, color) tuples
-        self.zoom = -15.0  # Zoom level
         self.last_mouse_pos = None  # Track the last mouse position for movement
         self.angle_x = 0
         self.angle_y = 0
@@ -171,7 +173,6 @@ class OpenGLWidget(QOpenGLWidget):
 
     def draw_lights(self):
         for x, y, z, color in self.lights:
-            
             glColor3f(color[0] / 255.0, color[1] / 255.0, color[2] / 255.0)
             glPushMatrix()
             glTranslatef(x, y, z)
@@ -219,9 +220,7 @@ class OpenGLWidget(QOpenGLWidget):
             elif self.camera_state == 2:
                 self.obj_angle_x += dy
                 self.obj_angle_y += dx
-                print(self.positionX, self.positionY, self.positionZ)
-                print(self.angle_x, self.angle_y)                
-                
+               
         self.last_x = event.position().x()
         self.last_y = event.position().y()
 
@@ -237,20 +236,17 @@ class OpenGLWidget(QOpenGLWidget):
             self.camera_state = 1 - self.camera_state
             self.update()
         
-    def update_brightness(self, value):
-        print("we brightin")
-        
     def select_light(self,value):
-        print("we lightin")
+        pass
         
     def light_red_handler(self,value):
-        print("red handler")
+        pass
         
     def light_blue_handler(self,value):
-        print("blue handler")
-        
+        pass
+                
     def light_green_handler(self,value):
-        print("green handler")
+        pass
 
     def object_rotation(self,value):
         if(self.camera_state == 2):           #return to standard camera control
@@ -272,9 +268,9 @@ class OpenGLWidget(QOpenGLWidget):
         self.update()
             
 
-    def select_colour(self,value):
-        print("colour select")
-        
+    def change_light_colour(self,index, colour):
+        light = self.lights[index]                   
+        self.lights[index] = (light[0],light[1],light[2],colour)
     
 
 
@@ -358,6 +354,8 @@ class MainWindow(QMainWindow):
         
         self.opengl_widget = OpenGLWidget(obj_path)
         self.lights = []
+        self.draggable_lights = []#had to make a seperate list that stores the object itself
+        self.light_counter = 1
         
         main_layout.addWidget(self.opengl_widget,0,0)
         self.opengl_widget.lights = self.lights
@@ -383,45 +381,49 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(QLabel("Helicopter Transparency:"),0,1)
         controls_layout.addWidget(transparency_slider,0,2)
         
-        light_selector = QComboBox()
-        light_selector.addItems(['One', 'Two', 'Three', 'Four'])# must add a way to dynamically include options for all renderd lights
-        light_selector.currentIndexChanged.connect(self.opengl_widget.select_light)
+        self.light_selector = QComboBox()
+        #light_selector.addItems(['One', 'Two', 'Three', 'Four'])# must add a way to dynamically include options for all renderd lights
+        self.light_selector.currentIndexChanged.connect(self.opengl_widget.select_light)
         
         controls_layout.addWidget(QLabel("Light Selector:"),0,3)
-        controls_layout.addWidget(light_selector,0,4)
+        controls_layout.addWidget(self.light_selector,0,4)
         
         colour_selector = QComboBox()
-        colour_selector.addItems(['One', 'Two', 'Three', 'Four'])# must add a way to dynamically include options for all renderd lights
-        colour_selector.currentIndexChanged.connect(self.opengl_widget.select_colour)
+        colour_selector.addItems(['Yellow', 'Red', 'Green', 'Blue'])# must add a way to dynamically include options for all renderd lights
+        colour_selector.currentIndexChanged.connect(self.light_change_handler)
         
         controls_layout.addWidget(QLabel("Colour Selector:"),1,3)
         controls_layout.addWidget(colour_selector,1,4)        
         
-        brightness_slider = QSlider(Qt.Orientation.Horizontal)
-        brightness_slider.setRange(1, 100)
-        brightness_slider.setValue(50)
-        brightness_slider.valueChanged.connect(self.opengl_widget.update_brightness)         
+        #brightness_slider = QSlider(Qt.Orientation.Horizontal)
+        #brightness_slider.setRange(1, 100)
+        #brightness_slider.setValue(50)
+        #brightness_slider.valueChanged.connect(self.opengl_widget.update_brightness)         
         
-        red_slider = QSlider(Qt.Orientation.Horizontal)
-        red_slider.setRange(1, 100)
-        red_slider.setValue(50)
-        red_slider.valueChanged.connect(self.opengl_widget.light_red_handler)
+        self.red_slider = QSlider(Qt.Orientation.Horizontal)
+        self.red_slider.setRange(1, 100)
+        self.red_slider.setValue(50)
+        self.red_slider.valueChanged.connect(self.opengl_widget.light_red_handler)
         
-        blue_slider = QSlider(Qt.Orientation.Horizontal)
-        blue_slider.setRange(1, 100)
-        blue_slider.setValue(50)
-        blue_slider.valueChanged.connect(self.opengl_widget.light_blue_handler)
+        self.blue_slider = QSlider(Qt.Orientation.Horizontal)
+        self.blue_slider.setRange(1, 100)
+        self.blue_slider.setValue(50)
+        self.blue_slider.valueChanged.connect(self.opengl_widget.light_blue_handler)
         
-        green_slider = QSlider(Qt.Orientation.Horizontal)
-        green_slider.setRange(1, 100)
-        green_slider.setValue(50)
-        green_slider.valueChanged.connect(self.opengl_widget.light_green_handler)        
+        self.green_slider = QSlider(Qt.Orientation.Horizontal)
+        self.green_slider.setRange(1, 100)
+        self.green_slider.setValue(50)
+        self.green_slider.valueChanged.connect(self.opengl_widget.light_green_handler)        
         
         
         controls_layout.addWidget(QLabel("Light Custom Colour(R/G/B):"),1,0)
-        controls_layout.addWidget(red_slider,1,1)
-        controls_layout.addWidget(blue_slider,2,1)     
-        controls_layout.addWidget(green_slider,3,1)     
+        controls_layout.addWidget(self.red_slider,1,1)
+        controls_layout.addWidget(self.blue_slider,2,1)     
+        controls_layout.addWidget(self.green_slider,3,1)  
+        
+        anchor_button = QPushButton("Send Custom Colour")
+        anchor_button.clicked.connect(self.light_custom_colour)
+        controls_layout.addWidget(anchor_button,2,0)         
         
         anchor_button = QPushButton("Anchor/Unanchor")
         anchor_button.clicked.connect(self.opengl_widget.object_rotation)
@@ -470,6 +472,23 @@ class MainWindow(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)        
  
+    def light_change_handler(self,colour):
+        match colour:
+            case 0:
+                self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(255,255,0))
+            case 1:
+                self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(255,0,0))
+            case 2:
+                self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(0,255,0))
+            case 3:
+                self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(0,0,255))      
+        self.opengl_widget.update()
+ 
+ 
+    def light_custom_colour(self):
+        self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(self.red_slider.value(),self.green_slider.value(),self.blue_slider.value()))
+        self.opengl_widget.update()
+        
  
     def update_2d_view(self, view_mode):
         self.viewer_2d.update_2d_view(self.opengl_widget.obj.vertices, self.lights, view_mode)
@@ -478,6 +497,9 @@ class MainWindow(QMainWindow):
         self.lights.append((x, y, z, color))
         self.opengl_widget.update()
         self.viewer_2d.update_2d_view(self.opengl_widget.obj.vertices, self.lights, self.viewer_2d.view_mode)
+        
+        self.light_selector.addItems([str(self.light_counter)])
+        self.light_counter +=1        
     
     
     def place_light_from_coords(self):
@@ -516,3 +538,6 @@ if __name__ == "__main__":
     
     
     #place light from coord no longer gravitates to a vertice
+    
+    #make anchoring neutral rotation values & fix off center rotation
+    #plug in all my methods
