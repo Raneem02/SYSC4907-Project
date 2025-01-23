@@ -403,17 +403,17 @@ class MainWindow(QMainWindow):
         #brightness_slider.valueChanged.connect(self.opengl_widget.update_brightness)         
         
         self.red_slider = QSlider(Qt.Orientation.Horizontal)
-        self.red_slider.setRange(1, 100)
+        self.red_slider.setRange(1, 255)
         self.red_slider.setValue(50)
         self.red_slider.valueChanged.connect(self.opengl_widget.light_red_handler)
         
         self.blue_slider = QSlider(Qt.Orientation.Horizontal)
-        self.blue_slider.setRange(1, 100)
+        self.blue_slider.setRange(1, 255)
         self.blue_slider.setValue(50)
         self.blue_slider.valueChanged.connect(self.opengl_widget.light_blue_handler)
         
         self.green_slider = QSlider(Qt.Orientation.Horizontal)
-        self.green_slider.setRange(1, 100)
+        self.green_slider.setRange(1, 255)
         self.green_slider.setValue(50)
         self.green_slider.valueChanged.connect(self.opengl_widget.light_green_handler)        
         
@@ -545,7 +545,3 @@ if __name__ == "__main__":
     
     
     
-    #place light from coord no longer gravitates to a vertice
-    
-    #make anchoring neutral rotation values & fix off center rotation
-    #plug in all my methods
