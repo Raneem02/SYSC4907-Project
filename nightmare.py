@@ -98,6 +98,8 @@ class OpenGLWidget(QOpenGLWidget):
         self.angle_y = 0
         self.obj_angle_x = 0 # for rotation within anchor mode
         self.obj_angle_y = 0
+        self.lastangle_x = 0
+        self.lastangle_y = 0        
         self.last_x = 0
         self.last_y = 0
         self.camera_state=0
@@ -251,13 +253,15 @@ class OpenGLWidget(QOpenGLWidget):
             self.camera_state = 0
             self.positionX,self.positionY,self.positionZ= (self.last_px,self.last_py,self.last_pz)
             
-            self.angle_x,self.angle_y = (self.obj_angle_x + self.angle_x,self.obj_angle_y + self.angle_y)#maintains camera angle after leaving anchor
+            self.angle_x,self.angle_y = self.lastangle_x,self.lastangle_y#maintains camera angle after leaving anchor
             
             self.obj_angle_x,self.obj_angle_y=(0,0)
             
         else:
                                   #set camera to neutral position for rotation control
             self.camera_state = 2
+            self.lastangle_x,self.lastangle_y = self.angle_x,self.angle_y
+            self.angle_x,self.angle_y=0,0
             self.last_px,self.last_py,self.last_pz= (self.positionX,self.positionY,self.positionZ)
             obj_center = self.obj.center
             self.positionX = -obj_center[0]
