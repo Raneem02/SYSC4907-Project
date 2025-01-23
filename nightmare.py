@@ -87,10 +87,6 @@ class DraggableLight(QLabel):
 
             drag.exec(Qt.DropAction.MoveAction)
 
-
-    def change_colour(self,color):  
-        self.color = color
-
 class OpenGLWidget(QOpenGLWidget):
     def __init__(self, obj_path):
         super().__init__()
@@ -209,9 +205,11 @@ class OpenGLWidget(QOpenGLWidget):
             elif self.camera_state == 1:
                 
     
-                self.positionX += ((dx * 0.03 * math.cos(math.radians(self.angle_y)))  + (-dy * 0.03 * math.sin(math.radians(self.angle_x))* math.sin(math.radians(self.angle_y))))             
+                self.positionX += ((dx * 0.03 * math.cos(math.radians(self.angle_y)))  + 
+                                   (-dy * 0.03 * math.sin(math.radians(self.angle_x))* math.sin(math.radians(self.angle_y))))             
                 self.positionY -= dy * 0.03 * math.cos(math.radians(self.angle_x))
-                self.positionZ -= ((-dx * 0.03 * math.sin(math.radians(self.angle_y))) + (-dy * self.Zcorrection * 0.03 * math.sin(math.radians(self.angle_x)) * math.sin(math.radians(self.angle_x))))
+                self.positionZ -= ((-dx * 0.03 * math.sin(math.radians(self.angle_y))) + 
+                                   (-dy * self.Zcorrection * 0.03 * math.sin(math.radians(self.angle_x)) * math.sin(math.radians(self.angle_x))))
                 
                 #print(self.positionX, self.positionY, self.positionZ)
                 #print(self.angle_x, self.angle_y)
@@ -473,21 +471,27 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(main_widget)        
  
     def light_change_handler(self,colour):
-        match colour:
-            case 0:
-                self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(255,255,0))
-            case 1:
-                self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(255,0,0))
-            case 2:
-                self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(0,255,0))
-            case 3:
-                self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(0,0,255))      
-        self.opengl_widget.update()
- 
+        if not bool(self.lights):
+            print("error, no lights exist")
+        else:
+            match colour:
+                case 0:
+                    self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(255,255,0))
+                case 1:
+                    self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(255,0,0))
+                case 2:
+                    self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(0,255,0))
+                case 3:
+                    self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(0,0,255))      
+            self.opengl_widget.update()
+     
  
     def light_custom_colour(self):
-        self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(self.red_slider.value(),self.green_slider.value(),self.blue_slider.value()))
-        self.opengl_widget.update()
+        if not bool(self.lights):
+            print("error, no lights exist")
+        else:
+            self.opengl_widget.change_light_colour(self.light_selector.currentIndex(),(self.red_slider.value(),self.green_slider.value(),self.blue_slider.value()))
+            self.opengl_widget.update()
         
  
     def update_2d_view(self, view_mode):
