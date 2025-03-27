@@ -8,6 +8,7 @@ from matplotlib.patches import Circle
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QPushButton, QSlider, QComboBox, QLineEdit, QFormLayout)
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget 
+from PyQt6.QtCore import QPoint
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from PyQt6.QtCore import Qt, QMimeData
@@ -15,7 +16,8 @@ from PyQt6.QtGui import QKeyEvent,  QDrag, QPainter, QColor, QPixmap
 import math
 import numpy as np
 import threading
-
+from PIL import Image, ImageDraw, ImageFont
+import time
 
 class ObjLoader:
     def __init__(self, filename):
@@ -56,7 +58,7 @@ class ObjLoader:
             return
         xs, ys, zs = zip(*self.vertices)
         self.center = (sum(xs) / len(xs), sum(ys) / len(ys), sum(zs) / len(zs))
-        print(self.center)
+        #print(self.center)
 
 
 
@@ -95,9 +97,11 @@ class OpenGLWidget(QOpenGLWidget):
         self.sphere=gluNewQuadric()
         self.objs = None
         self.obj_attributes = None
+        self.labelbool=None
         if obj_path is not None and obj_info is not None:
             self.objs = [ObjLoader(obj_path)]
             self.obj_attributes = [obj_info] # syntax: [[x,y,z],color,[angle_x,angle_y],transparency,name] in reference to each object at the same index
+            self.labelbool=[1]
         self.lights = []  # Store lights as (x, y, z, color) tuples
         self.last_mouse_pos = None  # Track the last mouse position for movement
         self.angle_x = 0
@@ -121,6 +125,7 @@ class OpenGLWidget(QOpenGLWidget):
         self.Zcorrection = 1
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.transparency = 0.4
+        self.mutex=False
         
     
     def initializeGL(self):
@@ -152,62 +157,143 @@ class OpenGLWidget(QOpenGLWidget):
         glRotatef(self.obj_angle_y, 0, 1, 0)     
         
         glTranslatef(self.orbitX, self.orbitY, self.orbitZ)
-        
+        while(self.mutex):
+            time.sleep(0.2)
+        self.mutex=True
         self.draw_grass()
         self.draw_lights()        
         self.draw_obj()  # Draw the object
+        self.mutex=False
         #self.draw_secondary_obj()
 
     def draw_obj(self):
         index = -1
-        for x in self.objs:
-            index += 1
-            glColor4f(self.obj_attributes[index][1][0]/255,self.obj_attributes[index][1][1]/255,self.obj_attributes[index][1][2]/255, self.obj_attributes[index][3])
-            #glBegin(GL_TRIANGLES)   
-            glPushMatrix()
-            glTranslatef(self.obj_attributes[index][0][0],self.obj_attributes[index][0][1],self.obj_attributes[index][0][2]) 
-            glRotatef(self.obj_attributes[index][2][0],1,0,0)
-            glRotatef(self.obj_attributes[index][2][1],0,1,0)
+        projected_labels=[]
+        if self.objs != []:
+            for x in self.objs:
+                index += 1
+                glColor4f(self.obj_attributes[index][1][0]/255,self.obj_attributes[index][1][1]/255,self.obj_attributes[index][1][2]/255, self.obj_attributes[index][3])
+                #glBegin(GL_TRIANGLES)   
+                glPushMatrix()
+                glTranslatef(self.obj_attributes[index][0][0],self.obj_attributes[index][0][1],self.obj_attributes[index][0][2]) 
+                glRotatef(self.obj_attributes[index][2][0],1,0,0)
+                glRotatef(self.obj_attributes[index][2][1],0,1,0)
+                
+                #[[x,y,z],color,[angle_x,angle_y],transparency,label]
+                glBegin(GL_TRIANGLES) 
+                for face in x.faces:
+                    if len(face) == 3:
+                        for vertex_idx in face:
+                            glVertex3fv(x.vertices[vertex_idx])
+                    elif len(face) == 4:
+                        glVertex3fv(x.vertices[face[0]])
+                        glVertex3fv(x.vertices[face[1]])
+                        glVertex3fv(x.vertices[face[2]])
+                        glVertex3fv(x.vertices[face[0]])
+                        glVertex3fv(x.vertices[face[2]])
+                        glVertex3fv(x.vertices[face[3]])
+
+                glEnd()
+                #draw label for each object
+                if self.labelbool[index]==1 and self.objs != []:
+                    modelview = glGetDoublev(GL_MODELVIEW_MATRIX)
+                    projection = glGetDoublev(GL_PROJECTION_MATRIX)
+                    viewport = glGetIntegerv(GL_VIEWPORT)
+                    winX, winY, winZ = gluProject(0,0,0, modelview, projection, viewport)
+                
+                    projected_labels.append((winX, winY, self.obj_attributes[index][4]))
+                
+
+                
+                glPopMatrix()
+        self.draw_labels(projected_labels)
+  
+    def create_text_texture(self,text, font_size=24):
+            font = ImageFont.truetype("arial.ttf", font_size)
+            padding=12
+            dummy_img = Image.new("RGBA", (1, 1))
+            dummy_draw = ImageDraw.Draw(dummy_img)
+            bbox = dummy_draw.multiline_textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
             
-            #[[x,y,z],color,[angle_x,angle_y],transparency]
-            glBegin(GL_TRIANGLES) 
-            for face in x.faces:
-                if len(face) == 3:
-                    for vertex_idx in face:
-                        glVertex3fv(x.vertices[vertex_idx])
-                elif len(face) == 4:
-                    glVertex3fv(x.vertices[face[0]])
-                    glVertex3fv(x.vertices[face[1]])
-                    glVertex3fv(x.vertices[face[2]])
-                    glVertex3fv(x.vertices[face[0]])
-                    glVertex3fv(x.vertices[face[2]])
-                    glVertex3fv(x.vertices[face[3]])
-            glEnd()
-            #glTranslatef(-self.obj_attributes[index][0][0],-self.obj_attributes[index][0][1],-self.obj_attributes[index][0][2])
-            #glRotatef(-self.obj_attributes[index][2][0],1,0,0)
-            #glRotatef(-self.obj_attributes[index][2][1],0,1,0)
-            glPopMatrix()
+            texture_width = text_width + 2 * padding + 100
+            texture_height = text_height + 2 * padding
+
+            img = Image.new("RGBA", (texture_width, texture_height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            
+            draw.multiline_text((padding, padding), text, font=font, fill=(255, 255, 255, 255))
+            img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+            img_data = np.array(img.convert("RGBA"), dtype=np.uint8)
+
+            texture_id = glGenTextures(1)
+            glBindTexture(GL_TEXTURE_2D, texture_id)
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
+    
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
+    
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+
+
+            return texture_id, texture_width, texture_height
+
+    def draw_textured_quad(self,x, y, w, h, texture_id):
+        glEnable(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, texture_id)
         
-    """
-    def draw_secondary_obj(self):
-        glColor4f(1.0, 1.0, 1.0, 1)
-        glBegin(GL_TRIANGLES)
-        for x in self.objs:
-            #glPushMatrix()
-            for face in x.faces:
-                if len(face) == 3:
-                    for vertex_idx in face:
-                        glVertex3fv(x.vertices[vertex_idx])
-                elif len(face) == 4:
-                    glVertex3fv(x.vertices[face[0]])
-                    glVertex3fv(x.vertices[face[1]])
-                    glVertex3fv(x.vertices[face[2]])
-                    glVertex3fv(x.vertices[face[0]])
-                    glVertex3fv(x.vertices[face[2]])
-                    glVertex3fv(x.vertices[face[3]])
-            #glPopMatrix()
-        glEnd()        
-    """    
+        glColor3f(1, 1, 1)
+        glBegin(GL_QUADS)
+        glTexCoord2f(0, 0); glVertex2f(x, y)
+        glTexCoord2f(1, 0); glVertex2f(x + w, y)
+        glTexCoord2f(1, 1); glVertex2f(x + w, y + h)
+        glTexCoord2f(0, 1); glVertex2f(x, y + h)
+        glEnd()
+
+        glDisable(GL_TEXTURE_2D)
+
+    def draw_labels(self, labels):
+        if not labels:
+            return
+
+        glDepthMask(GL_FALSE)
+        glMatrixMode(GL_PROJECTION)
+        width, height = self.width(), self.height()
+        glViewport(0, 0, width, height)
+        glPushMatrix()
+        glLoadIdentity()
+        offset = self.mapTo(self.window(), QPoint(0, 0))
+        offset_x, offset_y = offset.x(), offset.y()
+
+        # Now create an orthographic projection that accounts for the widget's offset:
+        glOrtho(offset_x, width + offset_x, offset_y, height + offset_y, -1, 1)
+        #glOrtho(0, width+50, 0, height+50, -1, 1)
+        
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+        
+        glDisable(GL_DEPTH_TEST)
+        glDepthFunc(GL_ALWAYS)
+        for winX, winY, label_text in labels:
+            texture_id, tex_w, tex_h = self.create_text_texture(label_text)
+            print(winX - tex_w, winY, tex_w, tex_h)
+            self.draw_textured_quad((winX - tex_w), winY,  tex_w, tex_h, texture_id)
+            glDeleteTextures([texture_id])
+        
+        glDepthMask(GL_TRUE)
+        glEnable(GL_DEPTH_TEST)
+        glPopMatrix()
+        
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+        
+
     def draw_grass(self):
         glColor3f(0.0, 0.5, 0.0)
         glBegin(GL_QUADS)
@@ -218,26 +304,53 @@ class OpenGLWidget(QOpenGLWidget):
         glEnd()
 
     def draw_lights(self):
-        for x, y, z, color in self.lights:
-            glColor3f(color[0] / 255.0, color[1] / 255.0, color[2] / 255.0)
-            glPushMatrix()
-            print(self.obj_attributes[0][0][0],self.obj_attributes[0][0][1],self.obj_attributes[0][0][2])
-            glTranslatef(self.obj_attributes[0][0][0],self.obj_attributes[0][0][1],self.obj_attributes[0][0][2])          
-            glRotatef(self.obj_attributes[0][2][0],1,0,0)# rotate,rotate,translate to helis current position
-            glRotatef(self.obj_attributes[0][2][1],0,1,0)
-            glTranslatef(x, y, z)#translate to lights position on heli
-            gluSphere(self.sphere,0.2, 10,10)
-            glPopMatrix()
+        if self.lights.__len__ != 0:
+            for x, y, z, color in self.lights:
+                glColor3f(color[0] / 255.0, color[1] / 255.0, color[2] / 255.0)
+                glPushMatrix()
+                #print(self.obj_attributes[0][0][0],self.obj_attributes[0][0][1],self.obj_attributes[0][0][2])
+                glTranslatef(self.obj_attributes[0][0][0],self.obj_attributes[0][0][1],self.obj_attributes[0][0][2])          
+                glRotatef(self.obj_attributes[0][2][0],1,0,0)# translate,rotate,rotate to helis current position
+                glRotatef(self.obj_attributes[0][2][1],0,1,0)
+                glTranslatef(x, y, z)#translate to lights position on heli
+                gluSphere(self.sphere,0.2, 10,10)
+                glPopMatrix()
     
+    #def draw_labels(self):
+
+
     def add_secondary(self,path,attributes): #for adding secondary objects during runtime
         self.objs.append(ObjLoader(path))
         self.obj_attributes.append(attributes)
+        self.labelbool.append(1)
         self.update()
     
     def edit_obj(self,index,attributes):
-        print(attributes)
         self.obj_attributes[index]=attributes
+        if self.camera_state==2 and index==0:
+            obj_center = self.objs[0].center
+            self.orbitX = -obj_center[0] - self.obj_attributes[0][0][0]
+            self.orbitY = -obj_center[1] - self.obj_attributes[0][0][1]
+            self.orbitZ = -obj_center[2] - self.obj_attributes[0][0][2]
         self.update()
+
+    def set_camera(self,type,angle,x=None,y=None,z=None):
+        if (self.camera_state == 2) ^ (type == 1):#if camera type is not aligned
+            self.object_rotation()
+        if type==0:
+            self.positionX=x
+            self.positionY=y
+            self.positionZ=z
+            self.angle_x=angle[0]
+            self.angle_y=angle[1]
+        else:
+            self.obj_angle_x=angle[0]
+            self.obj_angle_y=angle[1]
+        self.update()
+
+
+    def set_label(self,index,set):
+        self.labelbool[index]=set
 
     def mousePressEvent(self, event):
         self.last_x = event.position().x()
@@ -296,6 +409,16 @@ class OpenGLWidget(QOpenGLWidget):
         if self.camera_state != 2:
             self.camera_state = 1 - self.camera_state
             self.update()
+
+    def wipe(self):
+        while(self.mutex):
+            time.sleep(0.2)
+        self.mutex=True
+        self.objs=[]
+        self.obj_attributes=[]
+        #self.lights=[]
+        self.update()
+        self.mutex=False
         
     def select_light(self,value):
         pass
@@ -309,7 +432,7 @@ class OpenGLWidget(QOpenGLWidget):
     def light_green_handler(self,value):
         pass
 
-    def object_rotation(self,value):   #swap between orbit and free cameras
+    def object_rotation(self):   #swap between orbit and free cameras
         if(self.camera_state == 2):           #return to standard camera control
             self.camera_state = 0
             self.orbitX,self.orbitY,self.orbitZ= (0,0,0)
@@ -337,6 +460,7 @@ class OpenGLWidget(QOpenGLWidget):
     def change_light_colour(self,index, colour):
         light = self.lights[index]                   
         self.lights[index] = (light[0],light[1],light[2],colour)
+        self.update()
     
 
 
@@ -410,15 +534,14 @@ class Viewer2DCanvas(QWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, obj_path, obj_info):
+    def __init__(self, obj_path=None, obj_info=None):
         super().__init__()
-        print(obj_path)
         #print(obj_info)
         main_widget = QWidget()
         main_layout = QGridLayout()
         self.setWindowTitle("Helicopter GUI WIP Prototype")
         
-        self.opengl_widget = OpenGLWidget(obj_path, obj_info)
+        self.opengl_widget = OpenGLWidget(obj_path,obj_info)
         self.lights = []
         self.draggable_lights = []#had to make a seperate list that stores the object itself
         self.light_counter = 1
@@ -584,7 +707,10 @@ class MainWindow(QMainWindow):
         self.light_selector.addItems([str(self.light_counter)])
         self.light_counter +=1        
     
-    
+    def wipe(self):
+        self.lights=[]
+        self.opengl_widget.lights=self.lights
+
     def place_light_from_coords(self):
         try:
             x = float(self.x_input.text())
@@ -596,17 +722,21 @@ class MainWindow(QMainWindow):
             #    self.add_light(*closest_vertex)
         except ValueError:
             print("Invalid coordinates entered!")            
-        
+    
+    def closeEvent(self, event):
+        os._exit(0)    
 
 class fileReader():
     def __init__(self,filename,ref):
         self.file = open(filename, "r")
         self.ref=ref
+        self.newfile=""
+        self.oldfiles=[]
         print ("hello")
         line =self.file.readline()
         attributes = line.strip().split(",")
         self.time = 0.0
-        print(attributes)
+        #print(attributes)
         if attributes[0] == "CREATE":
             vals=[[int(attributes[3]),int(attributes[4]),int(attributes[5])],[int(attributes[6]),int(attributes[7]),int(attributes[8])],[int(attributes[9]),int(attributes[10])],float(attributes[11]),attributes[12]]
             # syntax: [[x,y,z],color,[angle_x,angle_y],transparency,name]
@@ -616,13 +746,13 @@ class fileReader():
         else:
             print("read file corrupt, does not start with create")
         #self.read()
-        self.thread = threading.Thread(target=self.read, daemon=True)
-        self.thread.start()
+        result = threading.Thread(target=lambda: self.read()).start()
 
 
-    def read(self):
+    def read(self,index=0):
         event=threading.Event()
-        for line in self.file:
+        self.file.seek(index)
+        for index,line in enumerate(self.file):
             attributes = line.strip().split(",")
             print(attributes)
             event.wait(float(attributes[1])-self.time)
@@ -633,13 +763,36 @@ class fileReader():
                 self.ref.opengl_widget.add_secondary(attributes[2],vals)
             elif attributes[0] == "MODIFY":
                 vals=[[float(attributes[3]),float(attributes[4]),float(attributes[5])],[int(attributes[6]),int(attributes[7]),int(attributes[8])],[int(attributes[9]),int(attributes[10])],float(attributes[11]),attributes[12]]
-                self.ref.opengl_widget.edit_obj(int(attributes[2])-1,vals)       
+                threading.Thread(target=lambda: self.ref.opengl_widget.edit_obj(int(attributes[2])-1,vals)).start()    
             elif attributes[0] == "ADD_LIGHT":
-                print(float(attributes[2]),float(attributes[3]),float(attributes[4]),(int(attributes[5]),int(attributes[6]),int(attributes[7])))
                 self.ref.add_light(float(attributes[2]),float(attributes[3]),float(attributes[4]),(int(attributes[5]),int(attributes[6]),int(attributes[7])))
             elif attributes[0] == "MODIFY_LIGHT":
-                self.ref.opengl_widget.change_light_colour(int(attributes[2])-1,(int(attributes[3]),int(attributes[4]),int(attributes[5])))
-
+                threading.Thread(target=lambda: self.ref.opengl_widget.change_light_colour(int(attributes[2])-1,(int(attributes[3]),int(attributes[4]),int(attributes[5])))).start()
+            elif attributes[0] == "SET_LABEL":
+                self.ref.opengl_widget.set_label(int(attributes[2])-1,int(attributes[3]))
+            elif attributes[0] == "SET_CAMERA":
+                if int(attributes[2])==1:
+                    self.ref.opengl_widget.set_camera(int(attributes[2])-1,[float(attributes[3]),float(attributes[4])],float(attributes[5]),float(attributes[6]),float(attributes[7]))
+                else:
+                    self.ref.opengl_widget.set_camera(int(attributes[2])-1,[float(attributes[3]),float(attributes[4])])
+            elif attributes[0] == "RESTART_FILE":
+                self.newfile=self.file
+                self.ref.opengl_widget.wipe()
+                self.ref.wipe()
+                self.file.seek(0)
+                self.read()
+            elif attributes[0] == "NEW_FILE":
+                self.oldfiles.append([self.file,index,self.time])
+                self.file=open(attributes[2], "r")
+                self.ref.opengl_widget.wipe()
+                self.ref.wipe()
+                self.read()
+        print(self.oldfiles)
+        if(self.oldfiles != []):
+            self.file,index,self.time=self.oldfiles.pop(-1)
+            self.ref.opengl_widget.wipe()
+            self.ref.wipe()
+            self.file.read(index)
 
 
 
@@ -721,10 +874,12 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     #obj_path = "bell_412.obj"  
     print("1 for file reader 2 for manual input")
-    input = int(input())        
-    if input ==1:
+    entry = int(input())        
+    if entry ==1:
+        print("enter file name")
+        inpu = input() 
         main_window = None 
-        reader = fileReader("4907-test.log",main_window)
+        reader = fileReader(inpu,main_window)
     else:
         
         select_window = attributeSelect("main")
