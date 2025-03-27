@@ -545,7 +545,8 @@ class MainWindow(QMainWindow):
         self.lights = []
         self.draggable_lights = []#had to make a seperate list that stores the object itself
         self.light_counter = 1
-        
+        self.play=True
+
         main_layout.addWidget(self.opengl_widget,0,0)
         self.opengl_widget.lights = self.lights
         self.opengl_widget.setFocus()
@@ -647,10 +648,13 @@ class MainWindow(QMainWindow):
         place_light_btn.clicked.connect(self.place_light_from_coords)
         controls_layout3.addWidget(place_light_btn,2,0)        
         
+        play_pause_btn = QPushButton(".log play/pause")
         load_obj_btn = QPushButton("edit existing object")
         edit_obj_btn = QPushButton("load new object")
+        play_pause_btn.clicked.connect(self.play_pause)
         load_obj_btn.clicked.connect(self.edit_object)
         edit_obj_btn.clicked.connect(self.load_new_object)
+        controls_layout.addWidget(play_pause_btn,2,4)
         controls_layout.addWidget(edit_obj_btn,3,4)
         controls_layout.addWidget(load_obj_btn,4,4)          
         
@@ -661,6 +665,12 @@ class MainWindow(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)        
  
+    def play_pause(self):
+        if self.play:
+            self.play=False 
+        else:
+            self.play=True
+
     def load_new_object(self):
         #print(self.secondary_filepath.text())
         #filename = self.secondary_filepath.text()
@@ -753,6 +763,8 @@ class fileReader():
         event=threading.Event()
         self.file.seek(index)
         for index,line in enumerate(self.file):
+            while not self.ref.play:
+                time.sleep(0.5)
             attributes = line.strip().split(",")
             print(attributes)
             event.wait(float(attributes[1])-self.time)
