@@ -100,7 +100,7 @@ class OpenGLWidget(QOpenGLWidget):
         self.labelbool=None
         if obj_path is not None and obj_info is not None:
             self.objs = [ObjLoader(obj_path)]
-            self.obj_attributes = [obj_info] # syntax: [[x,y,z],color,[angle_x,angle_y],transparency,name] in reference to each object at the same index
+            self.obj_attributes = [obj_info] # syntax: [[x,y,z],color,[angle_x,angle_y,angle_z],transparency,name] in reference to each object at the same index
             self.labelbool=[1]
         self.lights = []  # Store lights as (x, y, z, color) tuples
         self.last_mouse_pos = None  # Track the last mouse position for movement
@@ -178,6 +178,7 @@ class OpenGLWidget(QOpenGLWidget):
                 glTranslatef(self.obj_attributes[index][0][0],self.obj_attributes[index][0][1],self.obj_attributes[index][0][2]) 
                 glRotatef(self.obj_attributes[index][2][0],1,0,0)
                 glRotatef(self.obj_attributes[index][2][1],0,1,0)
+                glRotatef(self.obj_attributes[index][2][2],0,0,1)
                 
                 #[[x,y,z],color,[angle_x,angle_y],transparency,label]
                 glBegin(GL_TRIANGLES) 
@@ -737,8 +738,9 @@ class MainWindow(QMainWindow):
         os._exit(0)    
 
 class fileReader():
-    def __init__(self,filename,ref):
+    def __init__(self,filename,ref,select_window):
         self.file = open(filename, "r")
+        self.select_window = select_window
         self.ref=ref
         self.newfile=""
         self.oldfiles=[]
@@ -748,7 +750,7 @@ class fileReader():
         self.time = 0.0
         #print(attributes)
         if attributes[0] == "CREATE":
-            vals=[[int(attributes[3]),int(attributes[4]),int(attributes[5])],[int(attributes[6]),int(attributes[7]),int(attributes[8])],[int(attributes[9]),int(attributes[10])],float(attributes[11]),attributes[12]]
+            vals=[[int(attributes[3]),int(attributes[4]),int(attributes[5])],[int(attributes[6]),int(attributes[7]),int(attributes[8])],[int(attributes[9]),int(attributes[10]),int(attributes[11])],float(attributes[12]),attributes[13]]
             # syntax: [[x,y,z],color,[angle_x,angle_y],transparency,name]
             self.ref = MainWindow(attributes[2],vals)
             self.ref.resize(900, 650)   
@@ -767,14 +769,14 @@ class fileReader():
                 time.sleep(0.5)
             attributes = line.strip().split(",")
             print(attributes)
-            event.wait(float(attributes[1])-self.time)
+            event.wait(float(attributes[1])-self.time-0.01)
             self.time=float(attributes[1])
             if attributes[0] == "CREATE":
-                # syntax: [[x,y,z],color,[angle_x,angle_y],transparency,name]
-                vals=[[float(attributes[3]),float(attributes[4]),float(attributes[5])],[int(attributes[6]),int(attributes[7]),int(attributes[8])],[int(attributes[9]),int(attributes[10])],float(attributes[11]),attributes[12]]
+                # syntax: [[x,y,z],color,[angle_x,angle_y,angle_z],transparency,name]
+                vals=[[float(attributes[3]),float(attributes[4]),float(attributes[5])],[int(attributes[6]),int(attributes[7]),int(attributes[8])],[int(attributes[9]),int(attributes[10]),int(attributes[11])],float(attributes[12]),attributes[13]]
                 self.ref.opengl_widget.add_secondary(attributes[2],vals)
             elif attributes[0] == "MODIFY":
-                vals=[[float(attributes[3]),float(attributes[4]),float(attributes[5])],[int(attributes[6]),int(attributes[7]),int(attributes[8])],[int(attributes[9]),int(attributes[10])],float(attributes[11]),attributes[12]]
+                vals=[[float(attributes[3]),float(attributes[4]),float(attributes[5])],[int(attributes[6]),int(attributes[7]),int(attributes[8])],[int(attributes[9]),int(attributes[10]),int(attributes[11])],float(attributes[12]),attributes[13]]
                 threading.Thread(target=lambda: self.ref.opengl_widget.edit_obj(int(attributes[2])-1,vals)).start()    
             elif attributes[0] == "ADD_LIGHT":
                 self.ref.add_light(float(attributes[2]),float(attributes[3]),float(attributes[4]),(int(attributes[5]),int(attributes[6]),int(attributes[7])))
@@ -832,6 +834,7 @@ class attributeSelect(QMainWindow):
         self.z_input = QLineEdit()
         self.ax = QLineEdit()
         self.ay = QLineEdit()
+        self.az = QLineEdit()
         self.r= QLineEdit()
         self.g= QLineEdit()
         self.b= QLineEdit()
@@ -841,8 +844,8 @@ class attributeSelect(QMainWindow):
         main_widget = QWidget()
         main_layout = QGridLayout()
         self.setWindowTitle("Object Attribute Selector")        
-        # syntax: [[x,y,z],color,[angle_x,angle_y],transparency,name]
-        self.label = QLabel("inputs:x,y,z|angle x,y|colour r,g,b|transparency,name,filepath")
+        # syntax: [[x,y,z],color,[angle_x,angle_y,angle_z],transparency,name]
+        self.label = QLabel("inputs:x,y,z|angle x,y,z|colour r,g,b|transparency,name,filepath")
         main_layout.addWidget(self.label,4,1)
         self.load_obj_btn = QPushButton("load new object")
         self.load_obj_btn.clicked.connect(self.load_attributes)
@@ -851,6 +854,7 @@ class attributeSelect(QMainWindow):
         main_layout.addWidget(self.z_input,2,0)
         main_layout.addWidget(self.ax,0,1)
         main_layout.addWidget(self.ay,1,1)
+        main_layout.addWidget(self.az,2,1)
         main_layout.addWidget(self.load_obj_btn,4,0)
         main_layout.addWidget(self.r,0,2)
         main_layout.addWidget(self.g,1,2)
@@ -862,7 +866,7 @@ class attributeSelect(QMainWindow):
         self.setCentralWidget(main_widget)       
         
     def load_attributes(self):
-        attributes = [[int(self.x_input.text()),int(self.y_input.text()),int(self.z_input.text())],[int(self.r.text()),int(self.g.text()),int(self.b.text())],[int(self.ax.text()),int(self.ay.text())],float(self.transparency.text()),self.name.text()]
+        attributes = [[int(self.x_input.text()),int(self.y_input.text()),int(self.z_input.text())],[int(self.r.text()),int(self.g.text()),int(self.b.text())],[int(self.ax.text()),int(self.ay.text()),int(self.az.text())],float(self.transparency.text()),self.name.text()]
             
         if self.parent=="main":#[[x,y,z],color,[angle_x,angle_y],transparency,name]
             print("in load main")
@@ -886,15 +890,16 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     #obj_path = "bell_412.obj"  
     print("1 for file reader 2 for manual input")
-    entry = int(input())        
+    entry = int(input())    
+    select_window = attributeSelect("main")    
     if entry ==1:
         print("enter file name")
         inpu = input() 
         main_window = None 
-        reader = fileReader(inpu,main_window)
+        reader = fileReader(inpu,main_window,select_window)
     else:
         
-        select_window = attributeSelect("main")
+
         select_window.show()    
     #obj_path = "bell_412.obj"  
     

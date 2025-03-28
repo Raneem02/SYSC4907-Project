@@ -1,6 +1,15 @@
-CREATE,0000.00,bell_412.obj,1,2,3,0,125,255,0,0,0.6,in_loop_file
+CREATE,0000.00,bell_412.obj,1,2,3,0,125,255,0,0,0,0.6,in_loop_file
 SET_CAMERA,0001.00,2,15,45
+NEW_FILE,0001.50,4907-2.log
+
+
 NEW_FILE,0002.00,4907-1.log
+
+
+
+NEW_FILE,0002.50,4907-test.log
+
+
 
 
 RESTART_FILE,0003.00
