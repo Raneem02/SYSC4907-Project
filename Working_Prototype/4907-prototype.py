@@ -58,7 +58,7 @@ class ObjLoader:
             return
         xs, ys, zs = zip(*self.vertices)
         self.center = (sum(xs) / len(xs), sum(ys) / len(ys), sum(zs) / len(zs))
-        #print(self.center)
+        
 
 
 
@@ -147,16 +147,16 @@ class OpenGLWidget(QOpenGLWidget):
         
         
         
-        glRotatef(self.angle_x, 1, 0, 0)  # Rotate on X-axis
+        glRotatef(self.angle_x, 1, 0, 0)  # Rotate on X-axis, for free camera mode
         glRotatef(self.angle_y, 0, 1, 0)  # Rotate on Y-axis
         
-        glTranslatef(self.positionX, self.positionY, self.positionZ)  
+        glTranslatef(self.positionX, self.positionY, self.positionZ)  #translation in free camera mode
         
 
         glRotatef(self.obj_angle_x, 1, 0, 0) # rotation within anchor mode
         glRotatef(self.obj_angle_y, 0, 1, 0)     
         
-        glTranslatef(self.orbitX, self.orbitY, self.orbitZ)
+        glTranslatef(self.orbitX, self.orbitY, self.orbitZ)#position in anchor mode
         while(self.mutex):
             time.sleep(0.2)
         self.mutex=True
@@ -164,7 +164,6 @@ class OpenGLWidget(QOpenGLWidget):
         self.draw_lights()        
         self.draw_obj()  # Draw the object
         self.mutex=False
-        #self.draw_secondary_obj()
 
     def draw_obj(self):
         index = -1
@@ -173,7 +172,7 @@ class OpenGLWidget(QOpenGLWidget):
             for x in self.objs:
                 index += 1
                 glColor4f(self.obj_attributes[index][1][0]/255,self.obj_attributes[index][1][1]/255,self.obj_attributes[index][1][2]/255, self.obj_attributes[index][3])
-                #glBegin(GL_TRIANGLES)   
+                 
                 glPushMatrix()
                 glTranslatef(self.obj_attributes[index][0][0],self.obj_attributes[index][0][1],self.obj_attributes[index][0][2]) 
                 glRotatef(self.obj_attributes[index][2][0],1,0,0)
@@ -272,7 +271,6 @@ class OpenGLWidget(QOpenGLWidget):
 
         # Now create an orthographic projection that accounts for the widget's offset:
         glOrtho(offset_x, width + offset_x, offset_y, height + offset_y, -1, 1)
-        #glOrtho(0, width+50, 0, height+50, -1, 1)
         
         glMatrixMode(GL_MODELVIEW)
         glPushMatrix()
@@ -282,7 +280,6 @@ class OpenGLWidget(QOpenGLWidget):
         glDepthFunc(GL_ALWAYS)
         for winX, winY, label_text in labels:
             texture_id, tex_w, tex_h = self.create_text_texture(label_text)
-            print(winX - tex_w, winY, tex_w, tex_h)
             self.draw_textured_quad((winX - tex_w), winY,  tex_w, tex_h, texture_id)
             glDeleteTextures([texture_id])
         
@@ -309,7 +306,7 @@ class OpenGLWidget(QOpenGLWidget):
             for x, y, z, color in self.lights:
                 glColor3f(color[0] / 255.0, color[1] / 255.0, color[2] / 255.0)
                 glPushMatrix()
-                #print(self.obj_attributes[0][0][0],self.obj_attributes[0][0][1],self.obj_attributes[0][0][2])
+               
                 glTranslatef(self.obj_attributes[0][0][0],self.obj_attributes[0][0][1],self.obj_attributes[0][0][2])          
                 glRotatef(self.obj_attributes[0][2][0],1,0,0)# translate,rotate,rotate to helis current position
                 glRotatef(self.obj_attributes[0][2][1],0,1,0)
@@ -317,7 +314,7 @@ class OpenGLWidget(QOpenGLWidget):
                 gluSphere(self.sphere,0.2, 10,10)
                 glPopMatrix()
     
-    #def draw_labels(self):
+    
 
 
     def add_secondary(self,path,attributes): #for adding secondary objects during runtime
@@ -388,8 +385,7 @@ class OpenGLWidget(QOpenGLWidget):
                 self.positionZ -= ((-dx * 0.03 * math.sin(math.radians(self.angle_y))) + 
                                    (-dy * self.Zcorrection * 0.03 * math.sin(math.radians(self.angle_x)) * math.sin(math.radians(self.angle_x))))
                 
-                #print(self.positionX, self.positionY, self.positionZ)
-                #print(self.angle_x, self.angle_y)
+                
                 
                 
             elif self.camera_state == 2:
@@ -417,7 +413,7 @@ class OpenGLWidget(QOpenGLWidget):
         self.mutex=True
         self.objs=[]
         self.obj_attributes=[]
-        #self.lights=[]
+        self.lights=[]
         self.update()
         self.mutex=False
         
@@ -528,7 +524,7 @@ class Viewer2DCanvas(QWidget):
                 closest_vertex = self.obj.find_closest_vertex(lx, ly, 0)
             elif self.view_mode == "Side":
                 closest_vertex = self.obj.find_closest_vertex(0, ly, lx)
-            #print(closest_vertex)
+            
             if closest_vertex:
                 self.add_light_callback(*closest_vertex)
 
@@ -537,7 +533,7 @@ class Viewer2DCanvas(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self, obj_path=None, obj_info=None):
         super().__init__()
-        #print(obj_info)
+        
         main_widget = QWidget()
         main_layout = QGridLayout()
         self.setWindowTitle("Helicopter GUI WIP Prototype")
@@ -573,7 +569,6 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(transparency_slider,5,0)
         
         self.light_selector = QComboBox()
-        #light_selector.addItems(['One', 'Two', 'Three', 'Four'])# must add a way to dynamically include options for all renderd lights
         self.light_selector.currentIndexChanged.connect(self.opengl_widget.select_light)
         
         controls_layout.addWidget(QLabel("Light Selector:"),0,3)
@@ -673,10 +668,6 @@ class MainWindow(QMainWindow):
             self.play=True
 
     def load_new_object(self):
-        #print(self.secondary_filepath.text())
-        #filename = self.secondary_filepath.text()
-        #self.opengl_widget.add_secondary(filename)
-        print("in load object") 
         select_window.new(self)   
         
     def edit_object(self):
@@ -728,9 +719,6 @@ class MainWindow(QMainWindow):
             y = float(self.y_input.text())
             z = float(self.z_input.text())
             self.add_light(x,y,z)
-            #closest_vertex = self.obj.find_closest_vertex(x, y, z)
-            #if closest_vertex:
-            #    self.add_light(*closest_vertex)
         except ValueError:
             print("Invalid coordinates entered!")            
     
@@ -744,11 +732,11 @@ class fileReader():
         self.ref=ref
         self.newfile=""
         self.oldfiles=[]
-        print ("hello")
+        
         line =self.file.readline()
         attributes = line.strip().split(",")
         self.time = 0.0
-        #print(attributes)
+        
         if attributes[0] == "CREATE":
             vals=[[int(attributes[3]),int(attributes[4]),int(attributes[5])],[int(attributes[6]),int(attributes[7]),int(attributes[8])],[int(attributes[9]),int(attributes[10]),int(attributes[11])],float(attributes[12]),attributes[13]]
             # syntax: [[x,y,z],color,[angle_x,angle_y],transparency,name]
@@ -757,7 +745,7 @@ class fileReader():
             self.ref.show()
         else:
             print("read file corrupt, does not start with create")
-        #self.read()
+        
         result = threading.Thread(target=lambda: self.read()).start()
 
 
@@ -768,7 +756,7 @@ class fileReader():
             while not self.ref.play:
                 time.sleep(0.5)
             attributes = line.strip().split(",")
-            print(attributes)
+            
             event.wait(float(attributes[1])-self.time-0.01)
             self.time=float(attributes[1])
             if attributes[0] == "CREATE":
@@ -801,7 +789,6 @@ class fileReader():
                 self.ref.opengl_widget.wipe()
                 self.ref.wipe()
                 self.read()
-        print(self.oldfiles)
         if(self.oldfiles != []):
             self.file,index,self.time=self.oldfiles.pop(-1)
             self.ref.opengl_widget.wipe()
@@ -824,7 +811,7 @@ class attributeSelect(QMainWindow):
         self.label.setText("inputs:x,y,z|angle x,y|colour r,g,b|transparency,name,object number")
 
     def __init__(self,parent = None,ref=None):
-        print("in select init")
+        
         self.parent=parent
         super().__init__()
         self.ref=ref
@@ -869,26 +856,22 @@ class attributeSelect(QMainWindow):
         attributes = [[int(self.x_input.text()),int(self.y_input.text()),int(self.z_input.text())],[int(self.r.text()),int(self.g.text()),int(self.b.text())],[int(self.ax.text()),int(self.ay.text()),int(self.az.text())],float(self.transparency.text()),self.name.text()]
             
         if self.parent=="main":#[[x,y,z],color,[angle_x,angle_y],transparency,name]
-            print("in load main")
-            #sendobjinfo(self.path,[[self.x_input,self.y_input,self.z_input],[self.r,self.g,self.b],[self.ax,self.ay],self.transparency,self.name])
-
+            
+            
             main_window = MainWindow(self.path.text(),attributes)
             main_window.resize(900, 650)   
             main_window.show()
             self.hide()            
         else:
             if self.type=="new":
-                print ("in load else")
                 self.parent.opengl_widget.add_secondary(self.path.text(),attributes)       
                 self.hide()
             else:
-                print("in edit")
                 self.parent.opengl_widget.edit_obj(int(self.path.text())-1,attributes)       
                 self.hide()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    #obj_path = "bell_412.obj"  
     print("1 for file reader 2 for manual input")
     entry = int(input())    
     select_window = attributeSelect("main")    
@@ -898,16 +881,7 @@ if __name__ == "__main__":
         main_window = None 
         reader = fileReader(inpu,main_window,select_window)
     else:
-        
-
         select_window.show()    
-    #obj_path = "bell_412.obj"  
-    
-    # Create and show the main window
-    
-    
-
-    # Start the application's event loop
     sys.exit(app.exec())
     
     
